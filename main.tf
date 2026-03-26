@@ -76,76 +76,22 @@ resource "azurerm_resource_group" "rg" {
 }
 
 ############################################################
-# VIRTUAL NETWORK
+# EXISTING VNET
 ############################################################
 
-resource "azurerm_virtual_network" "vnet" {
-  name                = "vnet-ai-foundry-7-${random_string.net_suffix.result}"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  address_space       = ["10.10.0.0/16"]
-
-  tags = var.tags
+data "azurerm_virtual_network" "vnet" {
+  name                = var.vnet_name
+  resource_group_name = var.vnet_resource_group
 }
 
 ############################################################
-# NETWORK SECURITY GROUP (BASIC)
+# EXISTING SUBNETS
 ############################################################
 
-resource "azurerm_network_security_group" "nsg" {
-  name                = "nsg-ai-foundry-${random_string.net_suffix.result}"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-
-  tags = var.tags
-}
-
-############################################################
-# AGENT SUBNET (FOR AI FOUNDRY NETWORK INJECTION)
-############################################################
-
-resource "azurerm_subnet" "agent_subnet" {
-  name                 = "snet-ai-agent-7"
-  resource_group_name  = azurerm_resource_group.rg.name
-  virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = ["10.10.1.0/24"]
-
-  delegation {
-    name = "agent-delegation"
-
-    service_delegation {
-      name = "Microsoft.App/environments"
-
-      actions = [
-        "Microsoft.Network/virtualNetworks/subnets/join/action"
-      ]
-    }
-  }
-}
-
-############################################################
-# PRIVATE ENDPOINT SUBNET
-############################################################
-
-resource "azurerm_subnet" "private_endpoint_subnet" {
-  name                 = "snet-private-endpoints"
-  resource_group_name  = azurerm_resource_group.rg.name
-  virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = ["10.10.2.0/24"]
-}
-
-############################################################
-# ASSOCIATE NSG TO SUBNETS
-############################################################
-
-resource "azurerm_subnet_network_security_group_association" "agent_nsg_assoc" {
-  subnet_id                 = azurerm_subnet.agent_subnet.id
-  network_security_group_id = azurerm_network_security_group.nsg.id
-}
-
-resource "azurerm_subnet_network_security_group_association" "pe_nsg_assoc" {
-  subnet_id                 = azurerm_subnet.private_endpoint_subnet.id
-  network_security_group_id = azurerm_network_security_group.nsg.id
+data "azurerm_subnet" "agent_subnet" {
+  name                 = var.agent_subnet_name
+  virtual_network_name = data.azurerm_virtual_network.vnet.name
+  resource_group_name  = var.vnet_resource_group
 }
 
 ############################################################
@@ -172,59 +118,9 @@ resource "azurerm_cognitive_account" "ai_account" {
   }
   network_injection {
     scenario  = "agent"
-    subnet_id = azurerm_subnet.agent_subnet.id
+    subnet_id = data.azurerm_subnet.agent_subnet.id
   }
 }
-
-# resource "azapi_resource" "ai_account" {
-#   type      = "Microsoft.CognitiveServices/accounts@2025-06-01"
-#   name      = lower("${var.ai_account_name}-${random_string.net_suffix.result}")
-#   location  = azurerm_resource_group.rg.location
-#   parent_id = azurerm_resource_group.rg.id
-
-#   schema_validation_enabled = false
-
-#   body = {
-#     kind = "AIServices"
-
-#     sku = {
-#       name = "S0"
-#     }
-
-#     identity = {
-#       type = "SystemAssigned"
-#     }
-
-#     properties = {
-#       ####################################################
-#       # REQUIRED FOR AI FOUNDRY
-#       ####################################################
-#       customSubDomainName    = lower("${var.ai_account_name}-${random_string.net_suffix.result}")
-#       allowProjectManagement = true
-
-#       ####################################################
-#       # SECURITY (LOCK DOWN PUBLIC ACCESS)
-#       ####################################################
-#       publicNetworkAccess = "Disabled"
-
-#       networkAcls = {
-#         defaultAction = "Allow"
-#       }
-
-#       ####################################################
-#       # 🚀 NETWORK INJECTION (CORE PART)
-#       ####################################################
-#       networkInjections = [
-#         {
-#           scenario                   = "agent"
-#           subnetArmId                = azurerm_subnet.agent_subnet.id
-#           useMicrosoftManagedNetwork = false
-#         }
-#       ]
-#     }
-#   }
-# }
-
 
 ############################################################
 #  PROJECT (CREATED)
@@ -240,34 +136,7 @@ resource "azurerm_cognitive_account_project" "projects" {
   identity {
     type = "SystemAssigned"
   }
-
-  # tags = merge(var.tags, { project_type = "default" })
 }
-
-
-############################################################
-# NORMAL PROJECTS (CREATED AFTER DEFAULT)
-############################################################
-
-# resource "azurerm_cognitive_account_project" "normal" {
-#   for_each = local.normal_projects
-
-#   # provider             = azurerm.ai
-#   name                 = each.value.name
-#   cognitive_account_id =azurerm_cognitive_account.ai_account.id
-#   location             = azurerm_resource_group.rg.location
-
-#   identity {
-#     type = "SystemAssigned"
-#   }
-
-#   tags = merge(var.tags, { project_type = "normal" })
-
-#   depends_on = [
-#     azurerm_cognitive_account_project.default
-#   ]
-# }
-
 
 ############################################################
 # WAIT FOR IDENTITY PROPAGATION
@@ -300,7 +169,6 @@ resource "azurerm_role_assignment" "storage_role" {
 
   depends_on = [time_sleep.wait_identity]
 }
-
 
 ############################################################
 # COSMOS ROLE ASSIGNMENT
