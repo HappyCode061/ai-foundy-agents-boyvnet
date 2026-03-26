@@ -1,12 +1,13 @@
-resource_group_name = "rg-ai-foundry-8"
+resource_group_name = "rg-ai-foundry-10"
 location            = "swedencentral"
-ai_account_name     = "yogi0001122newaccount-8"
+ai_account_name     = "yogi0001122newaccount-10"
+vnet_name = "vnet-ai-foundry-7-m9ym"
+agent_subnet_name = "exiting-snet-ai-agent-8"
+vnet_resource_group = "rg-ai-foundry-8"
 
 projects = {
   project1 = {
     name       = "ai-project-6"
-    # is_default = true
-
     # search = {
     #   subscription_name = "Azure subscription 1"
     #   resource_group    = "rg-ai-foundry-yogi"
@@ -38,8 +39,6 @@ projects = {
 
   project2 = {
     name       = "ai-project-7"
-    # is_default = false
-
   #   search = {
   #     subscription_name = "Azure subscription 1"
   #     resource_group    = "rg-ai-foundry-1"
