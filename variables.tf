@@ -1,6 +1,9 @@
 ############################################################
 # CORE
 ############################################################
+variable "vnet_name" {}
+variable "agent_subnet_name" {}
+variable "vnet_resource_group" {}
 
 variable "resource_group_name" {
   type = string
@@ -17,6 +20,8 @@ variable "ai_account_name" {
 variable "tags" {
   type = map(string)
 }
+
+
 
 ############################################################
 # PROJECTS OBJECT
